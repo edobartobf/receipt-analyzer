@@ -46,6 +46,7 @@ export interface ScontrinoLetto {
 }
 
 const REGOLE_ASSEGNAZIONE = `Come assegnare le voci:
+- Le indicazioni sono dettate da una persona del gruppo, indicata come "chi detta": "io", "me", "il mio", "noi due" si riferiscono a lei.
 - Le indicazioni sono dettate a voce, quindi possono contenere errori di trascrizione, soprannomi e nomi abbreviati ("edo" per Edoardo): abbina ogni nome alla persona più plausibile dell'elenco.
 - Le indicazioni descrivono i piatti a parole loro ("la pasta al sugo"), lo scontrino usa le sue ("PENNE POMOD."): abbina per significato.
 - Se più persone hanno preso la stessa voce, dividila tra loro con 1 parte a testa. Usa parti diverse solo se le indicazioni lo dicono ("due birre io, una Luca" su una riga da tre birre → 2 e 1).
@@ -69,7 +70,12 @@ const SISTEMA_RIASSEGNA = `Un gruppo di colleghi si divide una spesa. Ricevi l'e
 
 ${REGOLE_ASSEGNAZIONE}`
 
-const elencoPersone = (persone: Persona[]) => persone.map((p) => `- ${p.nome} (id: ${p.id})`).join('\n')
+/** L'elenco delle persone e chi sta dettando (chi usa questo telefono), così "io" ha un nome. */
+export function elencoPersone(persone: Persona[], io: string): string {
+  const elenco = persone.map((p) => `- ${p.nome} (id: ${p.id})`).join('\n')
+  const chi = persone.find((p) => p.id === io)
+  return chi ? `${elenco}\n\nChi detta: ${chi.nome} (id: ${chi.id})` : elenco
+}
 
 function inQuote(assegnazioni: Assegnazioni, persone: Persona[]): Record<string, number> {
   const quote: Record<string, number> = {}
@@ -145,7 +151,7 @@ export async function leggiScontrino(foto: Blob[], indicazioni: string, persone:
       source: { type: 'base64', media_type: 'image/jpeg', data: bytesInBase64(new Uint8Array(await f.arrayBuffer())) },
     })
   }
-  const testo = `Persone del gruppo:\n${elencoPersone(persone)}\n\nOggi è il ${oggi}.\n\nIndicazioni su chi ha preso cosa:\n${
+  const testo = `Persone del gruppo:\n${elencoPersone(persone, impostazioni.io)}\n\nOggi è il ${oggi}.\n\nIndicazioni su chi ha preso cosa:\n${
     indicazioni.trim() || '(nessuna: lascia tutte le voci senza assegnazioni)'
   }`
   return daScontrino(await chiedi(Scontrino, SISTEMA_SCONTRINO, [...immagini, { type: 'text', text: testo }]), persone)
@@ -170,7 +176,7 @@ export async function riassegna(
       return `- id ${v.id}: ${v.nome}, ${(v.prezzo / 100).toFixed(2)} € (ora: ${attuali || 'nessuno'})`
     })
     .join('\n')
-  const testo = `Persone del gruppo:\n${elencoPersone(persone)}\n\nVoci:\n${elencoVoci}\n\nIndicazioni:\n${indicazioni.trim()}`
+  const testo = `Persone del gruppo:\n${elencoPersone(persone, impostazioni.io)}\n\nVoci:\n${elencoVoci}\n\nIndicazioni:\n${indicazioni.trim()}`
   const esito = await chiedi(Riassegnazione, SISTEMA_RIASSEGNA, [{ type: 'text', text: testo }])
   return {
     quote: Object.fromEntries(esito.voci.filter((v) => voci.some((x) => x.id === v.id)).map((v) => [v.id, inQuote(v.assegnazioni, persone)])),

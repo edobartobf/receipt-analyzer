@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { daScontrino } from '../src/lib/ai'
+import { daScontrino, elencoPersone } from '../src/lib/ai'
 
 const persone = [
   { id: 'edo', nome: 'Edoardo', attiva: true },
@@ -40,5 +40,14 @@ describe('daScontrino', () => {
     )
     expect(r.data).toBeNull()
     expect(r.voci[0]!.quote).toEqual({ edo: 2, luca: 1 })
+  })
+})
+
+describe('elencoPersone', () => {
+  it('dice chi sta dettando, così «io» si può attribuire', () => {
+    expect(elencoPersone(persone, 'luca')).toContain('Chi detta: Luca (id: luca)')
+  })
+  it('se chi detta non è nel gruppo non inventa nessuno', () => {
+    expect(elencoPersone(persone, 'boh')).not.toContain('Chi detta')
   })
 })
